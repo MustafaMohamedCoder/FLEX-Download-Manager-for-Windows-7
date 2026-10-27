@@ -4,7 +4,7 @@ project(FLEXDownloadManager VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTOUIC OFF)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
@@ -16,15 +16,20 @@ add_executable(FLEXDownloadManager WIN32
     src/resources.qrc
     src/main.cpp
     src/common.cpp
+    src/common.h
     src/config.cpp
     src/download.cpp
     src/http.cpp
     src/bridge.cpp
+    src/bridge.h
     src/localization.cpp
+    src/localization.h
     src/ui_main.cpp
     src/ui_dialogs.cpp
+    src/ui_qt.h
     src/url.cpp
     src/ytdlp.cpp
+    src/ytdlp.h
 )
 
 target_include_directories(FLEXDownloadManager PRIVATE src)
