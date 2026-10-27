@@ -21,7 +21,7 @@ jobs:
       - name: 📥 استنساخ المستودع (Checkout Code)
         uses: actions/checkout@v4
 
-      - name: ⚙️ إعداد مجمع MSVC
+      - name: ⚙️ إعداد بيئة مجمع MSVC
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
@@ -29,26 +29,29 @@ jobs:
       - name: 📦 تثبيت حزمة مكتبات Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.8.2'
-          host: 'windows'
+          version: '6.8.0'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
-          modules: 'qtbase'
+          cache: true
 
       - name: 🔨 البناء باستخدام CMake (مع خيار Subsystem 6.01 لويندوز 7)
         shell: cmd
         run: |
-          cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -G "Visual Studio 17 2022" -A x64
           cmake --build build --config Release
 
       - name: 🛠️ حزم مكتبات التشغيل (windeployqt) والنسخة المحمولة
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force dist, dist\portable | Out-Null
-          Copy-Item build\FLEXDownloadManager.exe dist\portable\ -Force
+          
+          $exePath = if (Test-Path "build\Release\FLEXDownloadManager.exe") { "build\Release\FLEXDownloadManager.exe" } else { "build\FLEXDownloadManager.exe" }
+          Copy-Item $exePath dist\portable\ -Force
+          
           if (Test-Path browser-extension) {
             Copy-Item -Recurse browser-extension dist\portable\ -Force
           }
+          
           windeployqt --release --no-translations dist\portable\FLEXDownloadManager.exe
           Compress-Archive -Path dist\portable\* -DestinationPath dist\FLEX-Download-Manager-Win7-Portable.zip -Force
 
@@ -71,6 +74,6 @@ jobs:
             - 📦 **نسخة محمولة كاملة (Portable)** بجميع مكتبات التشغيل.
           files: |
             dist/FLEX-Download-Manager-Win7-Portable.zip
-            build/FLEXDownloadManager.exe
+            dist/portable/FLEXDownloadManager.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
