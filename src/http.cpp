@@ -127,6 +127,10 @@ bool HttpClient::Open(const Config& cfg) {
                                     WINHTTP_NO_PROXY_BYPASS, 0);
     if (!session) return false;
 
+    // Enable TLS 1.1 and TLS 1.2 for Windows 7 WinHTTP compatibility
+    DWORD protocols = WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_1 | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2;
+    WinHttpSetOption(session, WINHTTP_OPTION_SECURE_PROTOCOLS, &protocols, sizeof(protocols));
+
     WinHttpSetTimeouts(session, cfg.connectTimeoutMs, cfg.connectTimeoutMs,
                        cfg.readTimeoutMs, cfg.readTimeoutMs);
 

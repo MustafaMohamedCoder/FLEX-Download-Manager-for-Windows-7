@@ -1,0 +1,76 @@
+name: Build & Release FLEX for Windows 7
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build FLEX Download Manager (Windows 7 Ready)
+    runs-on: windows-2022
+
+    steps:
+      - name: 📥 استنساخ المستودع (Checkout Code)
+        uses: actions/checkout@v4
+
+      - name: ⚙️ إعداد مجمع MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: 📦 تثبيت حزمة مكتبات Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.2'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          modules: 'qtbase'
+
+      - name: 🔨 البناء باستخدام CMake (مع خيار Subsystem 6.01 لويندوز 7)
+        shell: cmd
+        run: |
+          cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+
+      - name: 🛠️ حزم مكتبات التشغيل (windeployqt) والنسخة المحمولة
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force dist, dist\portable | Out-Null
+          Copy-Item build\FLEXDownloadManager.exe dist\portable\ -Force
+          if (Test-Path browser-extension) {
+            Copy-Item -Recurse browser-extension dist\portable\ -Force
+          }
+          windeployqt --release --no-translations dist\portable\FLEXDownloadManager.exe
+          Compress-Archive -Path dist\portable\* -DestinationPath dist\FLEX-Download-Manager-Win7-Portable.zip -Force
+
+      - name: 🚀 رفع النسخة النهائية تلقائياً في GitHub Releases
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        with:
+          name: 'FLEX Download Manager (نسخة ويندوز 7 المتوافقة)'
+          tag_name: 'v1.0.0-win7'
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## 🌟 FLEX Download Manager - Windows 7 / 8 / 10 / 11
+            
+            تم بناء هذا الإصدار وتجميعه تلقائياً ليعمل على **Windows 7 SP1**:
+            - 🛡️ **إلغاء التحديثات التلقائية**: النسخة مستقرة تماماً وبدون تحديث صامت.
+            - 💻 **Subsystem 6.01**: ربط مباشر مع نواة ويندوز 7.
+            - ⚡ **تفعيل TLS 1.2 في WinHTTP**: لحل مشاكل التحميل من مواقع الويب الحديثة.
+            - 📦 **نسخة محمولة كاملة (Portable)** بجميع مكتبات التشغيل.
+          files: |
+            dist/FLEX-Download-Manager-Win7-Portable.zip
+            build/FLEXDownloadManager.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
