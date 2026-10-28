@@ -40,40 +40,63 @@ jobs:
           cmake -B build -G "Visual Studio 17 2022" -A x64
           cmake --build build --config Release
 
-      - name: 🛠️ حزم مكتبات التشغيل (windeployqt) والنسخة المحمولة
+      - name: 🛠️ حزم مكتبات التشغيل (windeployqt)
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force dist, dist\portable | Out-Null
           
           $exePath = if (Test-Path "build\Release\FLEXDownloadManager.exe") { "build\Release\FLEXDownloadManager.exe" } else { "build\FLEXDownloadManager.exe" }
-          Copy-Item $exePath dist\portable\ -Force
+          Copy-Item $exePath dist\portable\FLEXDownloadManager.exe -Force
           
           if (Test-Path browser-extension) {
             Copy-Item -Recurse browser-extension dist\portable\ -Force
           }
           
           windeployqt --release --no-translations dist\portable\FLEXDownloadManager.exe
+
+      - name: 🚀 بناء ملف التثبيت المستقل (.exe Installer) عبر Inno Setup
+        shell: cmd
+        run: |
+          choco install innosetup -y
+          "C:\Program Files (x86)\Inno Setup 6\iscc.exe" installer\flex.iss
+
+      - name: 📦 بناء نسخة EXE المحمولة المستقلة (Single-File Portable EXE) وحزمة ZIP
+        shell: powershell
+        run: |
+          # 1. إنشاء ملف Single Portable EXE يعمل بنقرة واحدة بدون فك ضغط
+          if (Test-Path "C:\Program Files\7-Zip\7z.exe") {
+            & "C:\Program Files\7-Zip\7z.exe" a -t7z dist\app.7z .\dist\portable\* -mx9
+            @"
+          ;!@Install@!UTF-8!
+          Title="FLEX Download Manager"
+          RunProgram="FLEXDownloadManager.exe"
+          ;!@InstallEnd@!
+          "@ | Out-File -Encoding ASCII dist\sfx_config.txt
+            cmd /c copy /b "C:\Program Files\7-Zip\7z.sfx" + dist\sfx_config.txt + dist\app.7z "dist\FLEX-Download-Manager-SinglePortable.exe"
+          }
+
+          # 2. إنشاء حزمة ZIP التقليدية
           Compress-Archive -Path dist\portable\* -DestinationPath dist\FLEX-Download-Manager-Win7-Portable.zip -Force
 
-      - name: 🚀 رفع النسخة النهائية تلقائياً في GitHub Releases
+      - name: 🌟 نشر الإصدار على GitHub Releases
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         with:
-          name: 'FLEX Download Manager (نسخة ويندوز 7 المتوافقة)'
-          tag_name: 'v1.0.0-win7'
+          name: 'FLEX Download Manager (نسخة EXE المستقلة لويندوز 7)'
+          tag_name: 'v1.0.1-win7'
           draft: false
           prerelease: false
           generate_release_notes: true
           body: |
-            ## 🌟 FLEX Download Manager - Windows 7 / 8 / 10 / 11
+            ## 🌟 إصدار FLEX Download Manager المستقل بنظام Windows 7 / 8 / 10 / 11
             
-            تم بناء هذا الإصدار وتجميعه تلقائياً ليعمل على **Windows 7 SP1**:
-            - 🛡️ **إلغاء التحديثات التلقائية**: النسخة مستقرة تماماً وبدون تحديث صامت.
-            - 💻 **Subsystem 6.01**: ربط مباشر مع نواة ويندوز 7.
-            - ⚡ **تفعيل TLS 1.2 في WinHTTP**: لحل مشاكل التحميل من مواقع الويب الحديثة.
-            - 📦 **نسخة محمولة كاملة (Portable)** بجميع مكتبات التشغيل.
+            - 🚀 **ملف التثبيت المستقل `FLEX-Download-Manager-Setup.exe`**: ملف `.exe` واحد، انقر عليه مرتين ليثبت البرنامج في ثوانٍ مع أيقونة على سطح المكتب.
+            - 💼 **ملف الـ EXE المحمول المباشر `FLEX-Download-Manager-SinglePortable.exe`**: ملف `.exe` واحد يعمل فوراً بمجرد النقر عليه دون الحاجة للتثبيت أو فك الضغط.
+            - 📦 **الحزمة المحمولة `FLEX-Download-Manager-Win7-Portable.zip`**.
+            - 🛡️ **توافقية كاملة مع Windows 7 SP1** ودعم TLS 1.2 في WinHTTP بدون أي تحديثات تلقائية مزعجة.
           files: |
+            dist/FLEX-Download-Manager-Setup.exe
+            dist/FLEX-Download-Manager-SinglePortable.exe
             dist/FLEX-Download-Manager-Win7-Portable.zip
-            dist/portable/FLEXDownloadManager.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
